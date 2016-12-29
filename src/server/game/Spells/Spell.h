@@ -56,7 +56,7 @@ enum SpellCastFlags
     CAST_FLAG_UNKNOWN_16         = 0x00008000,
     CAST_FLAG_UNKNOWN_17         = 0x00010000,
     CAST_FLAG_ADJUST_MISSILE     = 0x00020000,
-    CAST_FLAG_NO_GCD             = 0x00040000,              // no GCD for spell casts from charm/summon (vehicle spells is an example)
+    CAST_FLAG_UNKNOWN_19         = 0x00040000,
     CAST_FLAG_VISUAL_CHAIN       = 0x00080000,
     CAST_FLAG_UNKNOWN_21         = 0x00100000,
     CAST_FLAG_RUNE_LIST          = 0x00200000,
@@ -124,7 +124,6 @@ class SpellCastTargets
         uint64 GetItemTargetGUID() const { return m_itemTargetGUID; }
         Item* GetItemTarget() const { return m_itemTarget; }
         uint32 GetItemTargetEntry() const { return m_itemTargetEntry; }
-		void SetItemTargetGUID(uint64 guid) { m_itemTargetGUID = guid; }
         void SetItemTarget(Item* item);
         void SetTradeItemTarget(Player* caster);
         void UpdateTradeSlotItem();
@@ -290,7 +289,6 @@ class Spell
         void EffectEnchantHeldItem(SpellEffIndex effIndex);
         void EffectSummonObject(SpellEffIndex effIndex);
         void EffectSummonRaidMarker(SpellEffIndex effIndex);
-        void EffectResurrect(SpellEffIndex effIndex);
         void EffectParry(SpellEffIndex effIndex);
         void EffectBlock(SpellEffIndex effIndex);
         void EffectLeap(SpellEffIndex effIndex);
@@ -313,7 +311,7 @@ class Spell
         void EffectKnockBack(SpellEffIndex effIndex);
         void EffectPullTowards(SpellEffIndex effIndex);
         void EffectDispelMechanic(SpellEffIndex effIndex);
-        void EffectResurrectPet(SpellEffIndex effIndex);
+        void EffectSummonDeadPet(SpellEffIndex effIndex);
         void EffectDestroyAllTotems(SpellEffIndex effIndex);
         void EffectDurabilityDamage(SpellEffIndex effIndex);
         void EffectSkill(SpellEffIndex effIndex);
@@ -358,9 +356,6 @@ class Spell
         void EffectCreateAreaTrigger(SpellEffIndex effIndex);
         void EffectRemoveTalent(SpellEffIndex effIndex);
         void EffectBattlePetsUnlock(SpellEffIndex effIndex);
-        void EffectPetBar(SpellEffIndex effIndex);
-
-		int32 CalculateMonkMeleeAttacks(Unit* caster, float coeff, int32 APmultiplier);
 
         typedef std::set<Aura*> UsedSpellMods;
 
@@ -401,7 +396,7 @@ class Spell
         void cast(bool skipCheck = false);
         void finish(bool ok = true);
         void TakePower();
-        void TakeAmmo();
+        //void TakeAmmo();
 
         void TakeRunePower(bool didHit);
         void TakeReagents();
@@ -475,7 +470,6 @@ class Spell
         int8 m_comboPointGain;
         SpellCustomErrors m_customError;
         SpellResearchData const* m_researchData;
-		bool m_darkSimulacrum;
 
         UsedSpellMods m_appliedMods;
 
@@ -487,7 +481,6 @@ class Spell
         bool IsTriggered() const { return _triggeredCastFlags & TRIGGERED_FULL_MASK; }
         bool IsChannelActive() const { return m_caster->GetUInt32Value(UNIT_FIELD_CHANNEL_SPELL) != 0; }
         bool IsAutoActionResetSpell() const;
-        bool IsCritForTarget(Unit* target) const;
 
         bool IsDeletable() const { return !m_referencedFromCurrentSpell && !m_executedCurrently; }
         void SetReferencedFromCurrent(bool yes) { m_referencedFromCurrentSpell = yes; }
@@ -579,8 +572,6 @@ class Spell
         // Damage and healing in effects need just calculate
         int32 m_damage;           // Damge   in effects count here
         int32 m_healing;          // Healing in effects count here
-		int32 m_final_damage;     // Final damage in effects count here
-        int32 m_absorbed_damage;   // Final absorbed damage in effects count here
 
         // ******************************************
         // Spell trigger system
@@ -600,7 +591,7 @@ class Spell
             uint64 timeDelay;
             SpellMissInfo missCondition:8;
             SpellMissInfo reflectResult:8;
-            uint32  effectMask:32;
+            uint8  effectMask:8;
             bool   processed:1;
             bool   alive:1;
             bool   crit:1;
@@ -608,7 +599,7 @@ class Spell
             int32  damage;
         };
         std::list<TargetInfo> m_UniqueTargetInfo;
-        uint32 m_channelTargetEffectMask;                        // Mask req. alive targets
+        uint8 m_channelTargetEffectMask;                        // Mask req. alive targets
 
         struct GOTargetInfo
         {
@@ -622,13 +613,13 @@ class Spell
         struct ItemTargetInfo
         {
             Item  *item;
-            uint32 effectMask;
+            uint8 effectMask;
         };
         std::list<ItemTargetInfo> m_UniqueItemInfo;
 
         SpellDestination m_destTargets[MAX_SPELL_EFFECTS];
 
-        void AddUnitTarget(Unit* target, uint32 effectMask, bool checkIfValid = true, bool implicit = true, uint8 effectIndex = EFFECT_0);
+        void AddUnitTarget(Unit* target, uint32 effectMask, bool checkIfValid = true, bool implicit = true);
         void AddGOTarget(GameObject* target, uint32 effectMask);
         void AddItemTarget(Item* item, uint32 effectMask);
         void AddDestTarget(SpellDestination const& dest, uint32 effIndex);
@@ -658,7 +649,6 @@ class Spell
         SpellCastResult CallScriptCheckCastHandlers();
         void PrepareScriptHitHandlers();
         bool CallScriptEffectHandlers(SpellEffIndex effIndex, SpellEffectHandleMode mode);
-		void CallScriptSuccessfulDispel(SpellEffIndex effIndex);
         void CallScriptBeforeHitHandlers();
         void CallScriptOnHitHandlers();
         void CallScriptAfterHitHandlers();
@@ -703,7 +693,6 @@ class Spell
 
         ByteBuffer * m_effectExecuteData[MAX_SPELL_EFFECTS];
 
-		bool m_redirected;
 #ifdef MAP_BASED_RAND_GEN
         int32 irand(int32 min, int32 max)       { return int32 (m_caster->GetMap()->mtRand.randInt(max - min)) + min; }
         uint32 urand(uint32 min, uint32 max)    { return m_caster->GetMap()->mtRand.randInt(max - min) + min; }
